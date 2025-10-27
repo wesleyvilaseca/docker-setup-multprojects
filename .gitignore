@@ -1,0 +1,51 @@
+# Docker
+.docker/
+
+# Logs
+logs/
+*.log
+
+# Projetos (opcional - remova se quiser versionar)
+projects/
+
+# Nginx vhosts específicos (manter apenas templates)
+nginx/conf.d/*.conf
+!nginx/conf.d/default.conf
+!nginx/conf.d/php-projects.conf
+!nginx/conf.d/node-projects.conf
+
+# SSL certificates
+ssl/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node modules (se versionar projetos)
+node_modules/
+
+# Composer (se versionar projetos PHP)
+vendor/
+
+# Laravel
+storage/logs/
+storage/framework/cache/
+storage/framework/sessions/
+storage/framework/views/
+bootstrap/cache/
