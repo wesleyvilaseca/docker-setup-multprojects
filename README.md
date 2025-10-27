@@ -45,7 +45,8 @@ docker-developer-setup/
 │   ├── shell.sh
 │   ├── add-project.sh
 │   ├── python-shell.sh
-│   └── python-install.sh
+│   ├── python-install.sh
+│   └── setup-cloned-project.sh
 └── docker-compose.yml
 ```
 
@@ -110,27 +111,100 @@ docker-developer-setup/
 ./scripts/test-xdebug.sh
 ```
 
+### 6. Scripts Disponíveis
+
+```bash
+# Gerenciamento de projetos
+./scripts/add-project.sh [nome] [php|node|python]     # Criar projeto novo
+./scripts/setup-cloned-project.sh [nome] [url-repo]   # Configurar projeto clonado
+
+# Acesso aos containers
+./scripts/shell.sh [php|node|nginx]                    # Shell PHP/Node/Nginx
+./scripts/python-shell.sh                             # Shell Python
+
+# Instalação de pacotes
+./scripts/python-install.sh [projeto] [pacote]        # Instalar pacote Python
+```
+
 ## 📦 Adicionando Novos Projetos
 
-### Projeto PHP/Laravel
+### 🆕 Criando Projeto Novo (Do Zero)
+
+Use o script para criar projetos com templates básicos:
+
+#### Projeto PHP/Laravel
 
 ```bash
 ./scripts/add-project.sh meu-laravel-app php
 ```
 
-### Projeto Node.js
+#### Projeto Node.js
 
 ```bash
 ./scripts/add-project.sh minha-api-node node
 ```
 
-### Projeto Python
+#### Projeto Python
 
 ```bash
 ./scripts/add-project.sh meu-django-app python
 ```
 
-## 🌐 Configuração de VHosts
+### 📥 Clonando Projeto Existente (GitHub/GitLab)
+
+Para trabalhar com projetos já existentes:
+
+#### Método Manual:
+
+```bash
+# 1. Clone o repositório
+cd projects/
+git clone https://github.com/usuario/meu-projeto.git
+
+# 2. Configure o vhost
+cp nginx/conf.d/python-projects.conf nginx/conf.d/meu-projeto.conf
+
+# 3. Edite a configuração
+# Editar nginx/conf.d/meu-projeto.conf
+# server_name meu-projeto.localhost;
+
+# 4. Reinicie o nginx
+docker-compose restart nginx
+
+# 5. Adicione ao /etc/hosts
+echo "127.0.0.1 meu-projeto.localhost" | sudo tee -a /etc/hosts
+```
+
+#### Método Automatizado (Script):
+
+```bash
+# Configure automaticamente um projeto clonado
+./scripts/setup-cloned-project.sh meu-projeto https://github.com/usuario/meu-projeto.git
+```
+
+### 🤔 Quando Usar Cada Método?
+
+#### ✅ Use `add-project.sh` quando:
+
+- Criar um projeto **do zero**
+- Quiser templates básicos (Flask, FastAPI, Express)
+- For um projeto simples ou MVP
+- Quiser configuração automática completa
+
+#### ✅ Use `setup-cloned-project.sh` quando:
+
+- Trabalhar com projetos **já existentes**
+- Clonar do GitHub/GitLab/Bitbucket
+- Projeto com estrutura complexa
+- Quiser manter histórico Git
+
+#### ✅ Use método manual quando:
+
+- Precisar de configuração específica
+- Quiser entender cada passo
+- Projeto com requisitos especiais
+
+### 🔧 Configuração de VHosts
 
 ### Para Projetos PHP/Laravel
 
@@ -347,6 +421,9 @@ docker-compose restart nginx
 
 # Instalar pacotes Python
 ./scripts/python-install.sh meu-projeto django
+
+# Configurar projeto clonado
+./scripts/setup-cloned-project.sh meu-projeto https://github.com/usuario/repo.git
 
 # Parar e remover volumes
 docker-compose down -v
