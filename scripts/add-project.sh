@@ -5,11 +5,12 @@ PROJECT_NAME=$1
 PROJECT_TYPE=$2
 
 if [ -z "$PROJECT_NAME" ] || [ -z "$PROJECT_TYPE" ]; then
-    echo "❌ Uso: ./scripts/add-project.sh [nome-do-projeto] [php|node]"
+    echo "❌ Uso: ./scripts/add-project.sh [nome-do-projeto] [php|node|python]"
     echo ""
     echo "Exemplos:"
     echo "   ./scripts/add-project.sh meu-laravel-app php"
     echo "   ./scripts/add-project.sh minha-api-node node"
+    echo "   ./scripts/add-project.sh meu-django-app python"
     exit 1
 fi
 
@@ -83,9 +84,84 @@ EOF
     echo "✅ Projeto Node.js criado em: $PROJECT_DIR"
     echo "📝 Configure o server_name em: $NGINX_CONFIG"
     
+elif [ "$PROJECT_TYPE" = "python" ]; then
+    echo "🐍 Configurando projeto Python..."
+    
+    # Copiar template de configuração nginx
+    cp nginx/conf.d/python-projects.conf "$NGINX_CONFIG"
+    
+    # Substituir variáveis no template
+    sed -i.bak "s/django-app/$PROJECT_NAME/g" "$NGINX_CONFIG"
+    rm "$NGINX_CONFIG.bak"
+    
+    # Criar requirements.txt básico
+    cat > "$PROJECT_DIR/requirements.txt" << EOF
+# Dependências básicas para desenvolvimento
+django>=4.2.0
+flask>=2.3.0
+fastapi>=0.100.0
+uvicorn>=0.23.0
+gunicorn>=21.0.0
+psycopg2-binary>=2.9.0
+redis>=4.6.0
+pymongo>=4.4.0
+python-dotenv>=1.0.0
+EOF
+    
+    # Criar app.py básico (Flask)
+    cat > "$PROJECT_DIR/app.py" << EOF
+from flask import Flask, jsonify
+from datetime import datetime
+
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    return jsonify({
+        'message': 'Hello from $PROJECT_NAME!',
+        'timestamp': datetime.now().isoformat(),
+        'framework': 'Flask'
+    })
+
+@app.route('/health')
+def health():
+    return jsonify({'status': 'healthy'})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8000, debug=True)
+EOF
+    
+    # Criar main.py básico (FastAPI)
+    cat > "$PROJECT_DIR/main.py" << EOF
+from fastapi import FastAPI
+from datetime import datetime
+
+app = FastAPI(title="$PROJECT_NAME", version="1.0.0")
+
+@app.get("/")
+async def root():
+    return {
+        "message": "Hello from $PROJECT_NAME!",
+        "timestamp": datetime.now().isoformat(),
+        "framework": "FastAPI"
+    }
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+EOF
+    
+    echo "✅ Projeto Python criado em: $PROJECT_DIR"
+    echo "📝 Configure o server_name em: $NGINX_CONFIG"
+    echo "🐍 Exemplos de frameworks incluídos: Flask e FastAPI"
+    
 else
     echo "❌ Tipo de projeto inválido: $PROJECT_TYPE"
-    echo "Tipos suportados: php, node"
+    echo "Tipos suportados: php, node, python"
     exit 1
 fi
 

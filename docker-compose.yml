@@ -46,6 +46,23 @@ services:
     networks:
       - dev-network
 
+  # Python para backends Django/Flask/FastAPI
+  python:
+    build:
+      context: ./docker/python
+      dockerfile: Dockerfile
+    container_name: dev-python
+    ports:
+      - "8000:8000" # Porta padrão Python
+    volumes:
+      - ./projects:/var/www/projects
+    working_dir: /var/www/projects
+    networks:
+      - dev-network
+    environment:
+      PYTHONPATH: /var/www/projects
+      PYTHONUNBUFFERED: 1
+
   # MongoDB
   mongodb:
     image: mongo:7

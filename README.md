@@ -1,11 +1,12 @@
 # 🐳 Docker Developer Setup
 
-Um ambiente Docker completo para desenvolvimento multi-projetos com suporte a PHP/Laravel e Node.js.
+Um ambiente Docker completo para desenvolvimento multi-projetos com suporte a PHP/Laravel, Node.js e Python.
 
 ## 🚀 Características
 
 - **PHP 8.3** com Laravel, extensões MongoDB, Redis e Xdebug
 - **Node.js 20** com PM2 para gerenciamento de processos
+- **Python 3.11** com Django, Flask, FastAPI e dependências essenciais
 - **Nginx** como proxy reverso com suporte a vhosts
 - **MongoDB** para banco de dados
 - **Redis** para cache e sessões
@@ -24,6 +25,8 @@ docker-developer-setup/
 │   │   ├── Dockerfile
 │   │   ├── package.json
 │   │   └── ecosystem.config.js
+│   ├── python/
+│   │   └── Dockerfile
 │   └── mongodb/
 │       └── mongod.conf
 ├── nginx/
@@ -32,6 +35,7 @@ docker-developer-setup/
 │       ├── default.conf          # ✅ Versionado
 │       ├── php-projects.conf     # ✅ Versionado (template)
 │       ├── node-projects.conf    # ✅ Versionado (template)
+│       ├── python-projects.conf  # ✅ Versionado (template)
 │       └── *.conf               # ❌ Não versionado (vhosts específicos)
 ├── projects/          # Seus projetos aqui
 ├── scripts/
@@ -39,7 +43,9 @@ docker-developer-setup/
 │   ├── stop.sh
 │   ├── logs.sh
 │   ├── shell.sh
-│   └── add-project.sh
+│   ├── add-project.sh
+│   ├── python-shell.sh
+│   └── python-install.sh
 └── docker-compose.yml
 ```
 
@@ -84,6 +90,9 @@ docker-developer-setup/
 # Shell do Node.js
 ./scripts/shell.sh node
 
+# Shell do Python
+./scripts/python-shell.sh
+
 # Shell do Nginx
 ./scripts/shell.sh nginx
 
@@ -115,6 +124,12 @@ docker-developer-setup/
 ./scripts/add-project.sh minha-api-node node
 ```
 
+### Projeto Python
+
+```bash
+./scripts/add-project.sh meu-django-app python
+```
+
 ## 🌐 Configuração de VHosts
 
 ### Para Projetos PHP/Laravel
@@ -135,6 +150,15 @@ docker-developer-setup/
    - `proxy_pass`: porta do seu app Node.js
 4. Reinicie o nginx: `docker-compose restart nginx`
 
+### Para Projetos Python
+
+1. Use o script: `./scripts/add-project.sh meu-projeto python`
+2. Ou copie manualmente: `cp nginx/conf.d/python-projects.conf nginx/conf.d/meu-projeto.conf`
+3. Edite o arquivo e configure:
+   - `server_name`: domínio do projeto
+   - `proxy_pass`: porta do seu app Python (padrão: 8000)
+4. Reinicie o nginx: `docker-compose restart nginx`
+
 ## 🔧 Configuração do /etc/hosts
 
 Adicione os domínios dos seus projetos ao arquivo `/etc/hosts`:
@@ -142,8 +166,10 @@ Adicione os domínios dos seus projetos ao arquivo `/etc/hosts`:
 ```
 127.0.0.1 meu-laravel-app.localhost
 127.0.0.1 minha-api-node.localhost
+127.0.0.1 meu-django-app.localhost
 127.0.0.1 projeto-php.localhost
 127.0.0.1 projeto-node.localhost
+127.0.0.1 projeto-python.localhost
 ```
 
 ## 🌍 URLs de Acesso
@@ -238,6 +264,41 @@ cd projects/minha-api
 npm install express cors helmet morgan
 ```
 
+### Python
+
+#### Django
+
+```bash
+# Criar projeto Django
+./scripts/add-project.sh meu-django python
+cd projects/meu-django
+./scripts/python-shell.sh
+django-admin startproject myproject .
+python manage.py runserver 0.0.0.0:8000
+```
+
+#### Flask
+
+```bash
+# Criar projeto Flask
+./scripts/add-project.sh minha-api-flask python
+cd projects/minha-api-flask
+./scripts/python-shell.sh
+python app.py
+```
+
+#### FastAPI
+
+```bash
+# Criar projeto FastAPI
+./scripts/add-project.sh minha-api-fastapi python
+cd projects/minha-api-fastapi
+./scripts/python-shell.sh
+python main.py
+# ou
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
 ## 🔍 Troubleshooting
 
 ### Container não inicia
@@ -248,6 +309,9 @@ docker-compose logs [nome-do-container]
 
 # Reconstruir containers
 docker-compose up -d --build --force-recreate
+
+# Instalar pacote Python
+./scripts/python-install.sh meu-projeto django
 ```
 
 ### Nginx não carrega configuração
@@ -276,6 +340,14 @@ docker-compose ps
 # Reiniciar um serviço específico
 docker-compose restart nginx
 
+# Acessar containers
+./scripts/shell.sh php
+./scripts/shell.sh node
+./scripts/python-shell.sh
+
+# Instalar pacotes Python
+./scripts/python-install.sh meu-projeto django
+
 # Parar e remover volumes
 docker-compose down -v
 
@@ -289,3 +361,6 @@ docker system prune -a
 - [Documentação do Nginx](https://nginx.org/en/docs/)
 - [Documentação do Laravel](https://laravel.com/docs)
 - [Documentação do Node.js](https://nodejs.org/docs/)
+- [Documentação do Django](https://docs.djangoproject.com/)
+- [Documentação do Flask](https://flask.palletsprojects.com/)
+- [Documentação do FastAPI](https://fastapi.tiangolo.com/)
