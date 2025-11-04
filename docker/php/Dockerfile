@@ -64,11 +64,16 @@ WORKDIR /var/www/projects
 COPY php.ini /usr/local/etc/php/php.ini
 COPY xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
 
+# Copiar script de entrada
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # Definir permissões
 RUN chown -R www:www /var/www/projects
 
 # Expor porta
 EXPOSE 9000
 
-# Comando padrão
+# Usar entrypoint para configurar hosts
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["php-fpm"]

@@ -33,6 +33,7 @@ services:
     volumes:
       - ./projects:/var/www/projects
       - ./docker/php/php.ini:/usr/local/etc/php/php.ini
+      - ./nginx/conf.d:/etc/nginx/vhosts:ro # Volume somente leitura para ler vhosts
     working_dir: /var/www/projects
     networks:
       - dev-network
