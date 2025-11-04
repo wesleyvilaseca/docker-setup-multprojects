@@ -36,5 +36,6 @@ USER python
 # Expor porta padrão
 EXPOSE 8000
 
-# Comando padrão
-CMD ["python", "--version"]
+# Comando padrão (manter container vivo para desenvolvimento)
+# Usando tail -f /dev/null que funciona melhor com usuário não-root
+CMD ["sh", "-c", "tail -f /dev/null"]

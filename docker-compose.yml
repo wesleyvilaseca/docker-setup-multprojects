@@ -5,6 +5,7 @@ services:
   nginx:
     image: nginx:alpine
     container_name: dev-nginx
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
@@ -16,6 +17,7 @@ services:
     depends_on:
       - php
       - node
+      - python
     networks:
       - dev-network
 
@@ -25,6 +27,7 @@ services:
       context: ./docker/php
       dockerfile: Dockerfile
     container_name: dev-php
+    restart: unless-stopped
     ports:
       - "9003:9003" # Xdebug
     volumes:
@@ -40,6 +43,7 @@ services:
       context: ./docker/node
       dockerfile: Dockerfile
     container_name: dev-node
+    restart: unless-stopped
     volumes:
       - ./projects:/var/www/projects
     working_dir: /var/www/projects
@@ -52,6 +56,7 @@ services:
       context: ./docker/python
       dockerfile: Dockerfile
     container_name: dev-python
+    restart: unless-stopped
     ports:
       - "8000:8000" # Porta padrão Python
     volumes:
@@ -67,6 +72,7 @@ services:
   mongodb:
     image: mongo:7
     container_name: dev-mongodb
+    restart: unless-stopped
     ports:
       - "27017:27017"
     volumes:
@@ -75,6 +81,12 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - dev-network
 
@@ -82,11 +94,41 @@ services:
   redis:
     image: redis:7-alpine
     container_name: dev-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --timeout 300 --tcp-keepalive 60
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dev-network
+
+  # PostgreSQL
+  postgres:
+    image: postgres:15
+    container_name: dev-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/01-init-config.sql:/docker-entrypoint-initdb.d/01-init-config.sql:ro
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-devdb}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - dev-network
 
@@ -94,6 +136,7 @@ services:
   mailhog:
     image: mailhog/mailhog:latest
     container_name: dev-mailhog
+    restart: unless-stopped
     ports:
       - "1025:1025" # SMTP
       - "8025:8025" # Web UI
@@ -104,6 +147,7 @@ services:
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
     container_name: dev-phpmyadmin
+    restart: unless-stopped
     ports:
       - "8080:80"
     environment:
@@ -116,6 +160,7 @@ services:
 volumes:
   mongodb_data:
   redis_data:
+  postgres_data:
 
 networks:
   dev-network:

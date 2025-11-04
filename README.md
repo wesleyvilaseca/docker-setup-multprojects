@@ -8,7 +8,8 @@ Um ambiente Docker completo para desenvolvimento multi-projetos com suporte a PH
 - **Node.js 20** com PM2 para gerenciamento de processos
 - **Python 3.11** com Django, Flask, FastAPI e dependências essenciais
 - **Nginx** como proxy reverso com suporte a vhosts
-- **MongoDB** para banco de dados
+- **MongoDB** para banco de dados NoSQL
+- **PostgreSQL 15** para banco de dados relacional com configurações anti-deadlock
 - **Redis** para cache e sessões
 - **Mailhog** para desenvolvimento de emails
 - **phpMyAdmin** para gerenciamento de banco (opcional)
@@ -27,8 +28,10 @@ docker-developer-setup/
 │   │   └── ecosystem.config.js
 │   ├── python/
 │   │   └── Dockerfile
-│   └── mongodb/
-│       └── mongod.conf
+│   ├── mongodb/
+│   │   └── mongod.conf
+│   └── postgres/
+│       └── postgresql.conf
 ├── nginx/
 │   ├── nginx.conf
 │   └── conf.d/
@@ -60,15 +63,63 @@ docker-developer-setup/
 
 ### 1. Iniciar o Ambiente
 
+#### ✅ Usando Script (Recomendado):
+
 ```bash
 ./scripts/start.sh
 ```
 
+**O que o script faz:**
+
+- ✅ Verifica se Docker está rodando
+- ✅ Cria diretórios necessários (`projects/`, `ssl/`, `logs/`)
+- ✅ Constrói e inicia containers com `docker-compose up -d --build`
+- ✅ Aguarda containers iniciarem
+- ✅ Mostra status e informações úteis
+
+#### 🔧 Usando Docker Compose Diretamente:
+
+```bash
+docker-compose up -d --build
+```
+
+**Funciona perfeitamente!** Mas você precisará:
+
+- Criar diretórios manualmente (se não existirem)
+- Verificar status manualmente: `docker-compose ps`
+- Lembrar comandos úteis
+
 ### 2. Parar o Ambiente
+
+#### ✅ Usando Script:
 
 ```bash
 ./scripts/stop.sh
 ```
+
+#### 🔧 Usando Docker Compose Diretamente:
+
+```bash
+docker-compose down
+```
+
+**Ambos funcionam igualmente!** O script apenas adiciona mensagens informativas.
+
+### 📋 Comparação: Scripts vs Docker Compose Direto
+
+| Ação          | Script                             | Docker Compose                     | Funciona Igual?                    |
+| ------------- | ---------------------------------- | ---------------------------------- | ---------------------------------- |
+| **Iniciar**   | `./scripts/start.sh`               | `docker-compose up -d --build`     | ✅ Sim, mas script cria diretórios |
+| **Parar**     | `./scripts/stop.sh`                | `docker-compose down`              | ✅ Sim, idêntico                   |
+| **Ver logs**  | `./scripts/logs.sh`                | `docker-compose logs`              | ✅ Sim, idêntico                   |
+| **Status**    | Incluído no start.sh               | `docker-compose ps`                | ✅ Sim, idêntico                   |
+| **Reiniciar** | `docker-compose restart [serviço]` | `docker-compose restart [serviço]` | ✅ Sim, idêntico                   |
+
+**💡 Recomendação:**
+
+- **Primeira vez ou setup**: Use `./scripts/start.sh` (cria diretórios automaticamente)
+- **Uso diário**: Você pode usar `docker-compose up -d` diretamente sem problemas
+- **Desenvolvimento**: Use o que preferir, ambos funcionam perfeitamente!
 
 ### 3. Ver Logs
 
@@ -102,6 +153,9 @@ docker-developer-setup/
 
 # Redis CLI
 ./scripts/shell.sh redis
+
+# PostgreSQL shell
+docker-compose exec postgres psql -U postgres -d devdb
 ```
 
 ### 5. Testar Xdebug
@@ -318,6 +372,48 @@ xdebug.log_level=1
 - **Host**: localhost
 - **Porta**: 6379
 
+### PostgreSQL
+
+- **Host**: localhost
+- **Porta**: 5432
+- **Usuário**: postgres (ou `POSTGRES_USER` do .env)
+- **Senha**: postgres (ou `POSTGRES_PASSWORD` do .env)
+- **Database**: devdb (ou `POSTGRES_DB` do .env)
+
+**Variáveis de ambiente (opcional):**
+
+```bash
+# Criar arquivo .env na raiz do projeto
+POSTGRES_DB=meudb
+POSTGRES_USER=meuuser
+POSTGRES_PASSWORD=minhasenha
+```
+
+**Configurações anti-deadlock incluídas:**
+
+As configurações anti-deadlock são aplicadas automaticamente na primeira inicialização do PostgreSQL através do script `docker/postgres/01-init-config.sql`.
+
+**Para aplicar em um banco existente:**
+
+```bash
+# Aplicar configurações manualmente em um banco já existente
+docker-compose exec postgres psql -U postgres -d devdb -f /docker-entrypoint-initdb.d/01-init-config.sql
+
+# Ou aplicar via SQL direto
+docker-compose exec postgres psql -U postgres -d devdb -c "ALTER SYSTEM SET deadlock_timeout = '5s';"
+docker-compose exec postgres psql -U postgres -d devdb -c "SELECT pg_reload_conf();"
+```
+
+**Configurações principais:**
+
+- `deadlock_timeout = 5s` (aumentado de 1s)
+- `log_deadlocks = on` (log de deadlocks)
+- `lock_timeout = 30s` (timeout para locks)
+- `statement_timeout = 300s` (timeout para statements)
+- `max_connections = 200` (mais conexões)
+- `shared_buffers = 256MB` (memória compartilhada)
+- `work_mem = 4MB` (memória por operação)
+
 ## 📝 Exemplos de Uso
 
 ### Laravel
@@ -371,6 +467,73 @@ cd projects/minha-api-fastapi
 python main.py
 # ou
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+## ⚠️ Prevenção de Deadlocks
+
+### ❌ **NÃO Use `TARGETPLATFORM=linux/amd64` em Mac Apple Silicon!**
+
+**Por que NÃO usar:**
+
+- Forçar `platform: linux/amd64` em Mac com Apple Silicon (M1/M2/M3) **causa deadlocks**
+- Emulação é **10-20x mais lenta** que execução nativa
+- Processos ficam "presos" esperando recursos
+- Bancos de dados não conseguem processar queries a tempo
+- Timeouts em cascata entre serviços
+
+**✅ O que fazer:**
+
+- **Deixe o Docker escolher automaticamente** a melhor arquitetura
+- O ambiente já está configurado para evitar deadlocks sem forçar plataforma
+
+### 🛡️ **Configurações Anti-Deadlock Incluídas:**
+
+1. **Health Checks**: Todos os serviços têm health checks configurados
+2. **Restart Policies**: `restart: unless-stopped` para recuperação automática
+3. **Redis Timeouts**: Configurado com `--timeout 300` e `--tcp-keepalive 60`
+4. **Dependências**: Serviços aguardam dependências iniciarem corretamente
+
+### 🔧 **Se Você Estiver em Mac Intel (x86_64):**
+
+Se você estiver usando Mac Intel (não Apple Silicon), pode usar `platform` normalmente:
+
+```yaml
+# Apenas para Mac Intel ou Linux
+platform: linux/amd64
+```
+
+Mas **não é necessário** - o Docker detecta automaticamente.
+
+### 📊 **Monitorando Deadlocks:**
+
+```bash
+# Ver logs de todos os serviços
+./scripts/logs.sh
+
+# Ver logs específicos
+docker-compose logs mongodb
+docker-compose logs redis
+docker-compose logs postgres
+
+# Verificar deadlocks no PostgreSQL
+docker-compose exec postgres psql -U postgres -d devdb -c "
+SELECT
+    pid,
+    now() - pg_stat_activity.query_start AS duration,
+    query,
+    state,
+    wait_event_type,
+    wait_event
+FROM pg_stat_activity
+WHERE (now() - pg_stat_activity.query_start) > interval '5 seconds'
+ORDER BY duration DESC;
+"
+
+# Verificar status dos containers
+docker-compose ps
+
+# Verificar recursos
+docker stats
 ```
 
 ## 🔍 Troubleshooting
