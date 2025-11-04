@@ -49,7 +49,9 @@ docker-developer-setup/
 │   ├── add-project.sh
 │   ├── python-shell.sh
 │   ├── python-install.sh
-│   └── setup-cloned-project.sh
+│   ├── setup-cloned-project.sh
+│   ├── node-dev.sh              # Iniciar servidor Node.js/Vue.js
+│   └── node-stop.sh              # Parar todos os processos Node.js
 └── docker-compose.yml
 ```
 
@@ -178,6 +180,10 @@ docker-compose exec postgres psql -U postgres -d devdb
 
 # Instalação de pacotes
 ./scripts/python-install.sh [projeto] [pacote]        # Instalar pacote Python
+
+# Desenvolvimento Node.js/Vue.js
+./scripts/node-dev.sh [caminho-projeto] [porta]       # Iniciar servidor Node.js
+./scripts/node-stop.sh                                # Parar todos os processos Node.js
 ```
 
 ## 📦 Adicionando Novos Projetos
@@ -275,8 +281,10 @@ echo "127.0.0.1 meu-projeto.localhost" | sudo tee -a /etc/hosts
 2. Ou copie manualmente: `cp nginx/conf.d/node-projects.conf nginx/conf.d/meu-projeto.conf`
 3. Edite o arquivo e configure:
    - `server_name`: domínio do projeto
-   - `proxy_pass`: porta do seu app Node.js
+   - `proxy_pass`: porta do seu app Node.js (padrão: 3000)
 4. Reinicie o nginx: `docker-compose restart nginx`
+5. Configure o `/etc/hosts` com o domínio do projeto
+6. Inicie o servidor de desenvolvimento: `./scripts/node-dev.sh [caminho-projeto]`
 
 ### Para Projetos Python
 
@@ -414,6 +422,149 @@ docker-compose exec postgres psql -U postgres -d devdb -c "SELECT pg_reload_conf
 - `shared_buffers = 256MB` (memória compartilhada)
 - `work_mem = 4MB` (memória por operação)
 
+## 🟢 Desenvolvimento Node.js/Vue.js
+
+### Iniciar Servidor de Desenvolvimento
+
+O script `node-dev.sh` permite iniciar servidores Node.js/Vue.js dentro do container de forma flexível:
+
+#### Opções de Uso:
+
+**1. Apenas o nome do projeto (busca automática):**
+```bash
+./scripts/node-dev.sh dashboard-prefeituras-frontend
+```
+O script busca recursivamente em `projects/` e encontra o projeto automaticamente.
+
+**2. Caminho relativo (mais específico):**
+```bash
+./scripts/node-dev.sh atrim-projects/dashboard-prefeituras-frontend
+```
+
+**3. Caminho completo:**
+```bash
+./scripts/node-dev.sh projects/atrim-projects/dashboard-prefeituras-frontend
+```
+
+**4. Com porta customizada:**
+```bash
+./scripts/node-dev.sh dashboard-prefeituras-frontend 3001
+```
+
+**5. Listar projetos disponíveis:**
+```bash
+./scripts/node-dev.sh
+```
+Lista todos os projetos Node.js/Vue.js encontrados em `projects/`.
+
+#### O que o script faz:
+
+- ✅ Verifica se o container Node.js está rodando
+- ✅ Busca o projeto automaticamente (se não especificar caminho completo)
+- ✅ Instala dependências automaticamente (se `node_modules` não existir)
+- ✅ Inicia o servidor de desenvolvimento (`npm run dev`)
+- ✅ Suporta projetos Vue.js, React, Express, Next.js, etc.
+
+### Parar Todos os Projetos Node.js
+
+Para parar todos os processos Node.js rodando simultaneamente:
+
+```bash
+./scripts/node-stop.sh
+```
+
+Este script:
+- ✅ Lista todos os processos Node.js ativos
+- ✅ Para todos os processos (node, npm, vite, nodemon)
+- ✅ Confirma se foram parados com sucesso
+
+#### Alternativas manuais:
+
+```bash
+# Parar todos os processos Node.js no container
+docker compose exec node sh -c "pkill -f 'node|npm|vite|nodemon'"
+
+# Forçar parada (se necessário)
+docker compose exec node sh -c "pkill -9 -f node"
+
+# Ver processos Node.js rodando
+docker compose exec node sh -c "ps aux | grep -E 'node|npm|vite' | grep -v grep"
+```
+
+### Executar Múltiplos Projetos Simultaneamente
+
+Para rodar múltiplos projetos Node.js ao mesmo tempo, use terminais diferentes:
+
+**Terminal 1:**
+```bash
+./scripts/node-dev.sh projeto-1
+# Roda na porta 3000 (ou a configurada no projeto)
+```
+
+**Terminal 2:**
+```bash
+./scripts/node-dev.sh projeto-2 3001
+# Roda na porta 3001
+```
+
+**Terminal 3:**
+```bash
+./scripts/node-dev.sh projeto-3 3002
+# Roda na porta 3002
+```
+
+**⚠️ Importante:**
+- Cada projeto precisa rodar em uma porta diferente
+- Cada projeto precisa de seu próprio vhost no Nginx
+- Configure o vhost para fazer proxy para a porta correta
+
+### Exemplo Completo: Vue.js + Vite
+
+```bash
+# 1. Criar vhost (se ainda não criou)
+cp nginx/conf.d/node-projects.conf nginx/conf.d/meu-vue-app.conf
+
+# 2. Editar vhost: nginx/conf.d/meu-vue-app.conf
+#    - server_name: meu-vue-app.localhost
+#    - proxy_pass: http://node:3000
+
+# 3. Reiniciar Nginx
+docker compose restart nginx
+
+# 4. Adicionar ao /etc/hosts
+echo "127.0.0.1 meu-vue-app.localhost" | sudo tee -a /etc/hosts
+
+# 5. Iniciar servidor de desenvolvimento
+./scripts/node-dev.sh meu-vue-app
+
+# 6. Acessar no navegador
+# http://meu-vue-app.localhost
+```
+
+### Exemplo Completo: Express.js
+
+```bash
+# 1. Criar projeto
+./scripts/add-project.sh minha-api-express node
+
+# 2. Configurar vhost
+# Editar nginx/conf.d/minha-api-express.conf
+#    - server_name: minha-api-express.localhost
+#    - proxy_pass: http://node:3000
+
+# 3. Reiniciar Nginx
+docker compose restart nginx
+
+# 4. Adicionar ao /etc/hosts
+echo "127.0.0.1 minha-api-express.localhost" | sudo tee -a /etc/hosts
+
+# 5. Iniciar servidor
+./scripts/node-dev.sh minha-api-express
+
+# 6. Acessar
+# http://minha-api-express.localhost
+```
+
 ## 📝 Exemplos de Uso
 
 ### Laravel
@@ -432,6 +583,30 @@ composer create-project laravel/laravel .
 ./scripts/add-project.sh minha-api node
 cd projects/minha-api
 npm install express cors helmet morgan
+
+# Iniciar servidor de desenvolvimento
+./scripts/node-dev.sh minha-api
+```
+
+### Vue.js/Vite
+
+```bash
+# Criar projeto Vue.js (ou clonar existente)
+cd projects/
+git clone https://github.com/usuario/meu-vue-app.git
+
+# Configurar vhost
+cp ../nginx/conf.d/node-projects.conf ../nginx/conf.d/meu-vue-app.conf
+# Editar server_name e proxy_pass
+
+# Reiniciar Nginx
+docker compose restart nginx
+
+# Adicionar ao /etc/hosts
+echo "127.0.0.1 meu-vue-app.localhost" | sudo tee -a /etc/hosts
+
+# Iniciar servidor
+./scripts/node-dev.sh meu-vue-app
 ```
 
 ### Python
@@ -581,6 +756,11 @@ docker-compose restart nginx
 ./scripts/shell.sh php
 ./scripts/shell.sh node
 ./scripts/python-shell.sh
+
+# Desenvolvimento Node.js/Vue.js
+./scripts/node-dev.sh [caminho-projeto] [porta]       # Iniciar servidor
+./scripts/node-dev.sh                                   # Listar projetos disponíveis
+./scripts/node-stop.sh                                 # Parar todos os processos Node.js
 
 # Instalar pacotes Python
 ./scripts/python-install.sh meu-projeto django
