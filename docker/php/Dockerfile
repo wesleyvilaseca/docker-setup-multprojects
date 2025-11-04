@@ -20,12 +20,15 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     libxslt-dev \
     libicu-dev \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar extensões PHP
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
     pdo_mysql \
+    pdo_pgsql \
+    pgsql \
     mbstring \
     exif \
     pcntl \
