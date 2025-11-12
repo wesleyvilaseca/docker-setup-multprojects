@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # Nginx - Proxy Reverso
   nginx:
@@ -12,12 +10,23 @@ services:
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./projects:/var/www/projects
+      - ./projects:/var/www/projects:delegated
       - ./ssl:/etc/nginx/ssl
     depends_on:
       - php
       - node
       - python
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - dev-network
 
@@ -31,10 +40,24 @@ services:
     ports:
       - "9003:9003" # Xdebug
     volumes:
-      - ./projects:/var/www/projects
+      - ./projects:/var/www/projects:delegated
       - ./docker/php/php.ini:/usr/local/etc/php/php.ini
       - ./nginx/conf.d:/etc/nginx/vhosts:ro # Volume somente leitura para ler vhosts
     working_dir: /var/www/projects
+    environment:
+      - OPcache_ENABLE=1
+      - OPcache_REVALIDATE_FREQ=0
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "php", "-v"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - dev-network
 
@@ -46,7 +69,7 @@ services:
     container_name: dev-node
     restart: unless-stopped
     volumes:
-      - ./projects:/var/www/projects
+      - ./projects:/var/www/projects:delegated
     working_dir: /var/www/projects
     networks:
       - dev-network
@@ -61,7 +84,7 @@ services:
     ports:
       - "8000:8000" # Porta padrão Python
     volumes:
-      - ./projects:/var/www/projects
+      - ./projects:/var/www/projects:delegated
     working_dir: /var/www/projects
     networks:
       - dev-network

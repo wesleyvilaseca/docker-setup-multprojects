@@ -66,6 +66,7 @@ WORKDIR /var/www/projects
 # Copiar arquivos de configuração
 COPY php.ini /usr/local/etc/php/php.ini
 COPY xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
+COPY php-fpm-dev.conf /usr/local/etc/php-fpm.d/zzz-dev.conf
 
 # Copiar script de entrada
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
